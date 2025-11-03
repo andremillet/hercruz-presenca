@@ -4,10 +4,19 @@
 
 echo "Installing ngrok..."
 
-# Download and install ngrok
-curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-sudo apt update && sudo apt install ngrok
+# Check if Arch Linux or Debian-based
+if command -v pacman &> /dev/null; then
+    # Arch Linux
+    sudo pacman -S ngrok
+elif command -v apt &> /dev/null; then
+    # Debian/Ubuntu
+    curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+    echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+    sudo apt update && sudo apt install ngrok
+else
+    echo "Unsupported package manager. Please install ngrok manually from https://ngrok.com/download"
+    exit 1
+fi
 
 # Note: User needs to set auth token manually: ngrok config add-authtoken <token>
 
