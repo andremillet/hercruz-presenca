@@ -7,9 +7,13 @@ from datetime import datetime
 import qrcode
 import io
 import socket
+from pytz import timezone
 
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
 CORS(app)
+
+# Timezone setup
+sao_paulo_tz = timezone('America/Sao_Paulo')
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///hercruz.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -98,7 +102,7 @@ def checkin():
     data = request.get_json()
     user_id = data['user_id']
     shift_id = data['shift_id']
-    check_in_time = datetime.utcnow()
+    check_in_time = datetime.now(sao_paulo_tz)
     attendance = Attendance(user_id=user_id, shift_id=shift_id, check_in=check_in_time)
     db.session.add(attendance)
     db.session.commit()
@@ -108,7 +112,7 @@ def checkin():
 def checkout():
     data = request.get_json()
     attendance_id = data['attendance_id']
-    check_out_time = datetime.utcnow()
+    check_out_time = datetime.now(sao_paulo_tz)
     attendance = Attendance.query.get_or_404(attendance_id)
     attendance.check_out = check_out_time
     if attendance.check_in:
@@ -188,7 +192,7 @@ if __name__ == '__main__':
         # Create a default shift if none exists
         if not Shift.query.first():
             default_shift = Shift(
-                date=datetime.utcnow().date(),
+                date=datetime.now(sao_paulo_tz).date(),
                 type='day_shift',
                 nurse_group='3-4',
                 assigned_users='[]'
@@ -206,6 +210,16 @@ if __name__ == '__main__':
                 role='plantonista',
                 password=hashed_password
             )
+            db.session.add(default_user)
+            db.session.commit()
+            # Create default attendance for demo
+            default_attendance = Attendance(
+                user_id=default_user.id,
+                shift_id=default_shift.id,
+                check_in=datetime.now(sao_paulo_tz)
+            )
+            db.session.add(default_attendance)
+            db.session.commit()
             db.session.add(default_user)
             db.session.commit()
     app.run(host='0.0.0.0', port=5000, debug=True)
