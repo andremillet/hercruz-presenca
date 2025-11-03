@@ -83,6 +83,10 @@
         <p>Escaneie o QR Code para registrar presença:</p>
         <img id="qr" src="/api/qr" alt="QR Code" onclick="showModal()">
     </div>
+    <div id="mobile-actions" style="display: none; text-align: center; margin: 20px;">
+        <button onclick="showModal('checkin')" style="margin: 10px; padding: 15px; font-size: 18px; background: #3498db; color: white; border: none; border-radius: 5px;">Check-in</button>
+        <button onclick="showModal('checkout')" style="margin: 10px; padding: 15px; font-size: 18px; background: #e74c3c; color: white; border: none; border-radius: 5px;">Check-out</button>
+    </div>
     <div id="modal">
         <h3>Digite seu CPF</h3>
         <input type="tel" id="cpf" placeholder="CPF (somente números)" maxlength="11" inputmode="numeric" pattern="[0-9]*">
@@ -114,8 +118,14 @@
 
     <script>
         let currentCPF = '';
+        let intendedAction = ''; // 'checkin' or 'checkout'
 
-        async function showModal() {
+        function isMobile() {
+            return window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
+        }
+
+        async function showModal(action = '') {
+            intendedAction = action;
             document.getElementById('modal').style.display = 'block';
             document.getElementById('cpf').focus();
         }
@@ -148,11 +158,17 @@
                 const data = await response.json();
                 if (data.exists) {
                     currentUserId = data.user_id;
-                    // Mostrar opções de check-in/check-out e relatório, ocultar admin
-                    document.getElementById('action-buttons').style.display = 'block';
-                    document.getElementById('my-reports').style.display = 'block';
-                    document.getElementById('admin-link').style.display = 'none';
-                    document.getElementById('message').textContent = 'Usuário encontrado. Escolha a ação:';
+                    if (intendedAction === 'checkin') {
+                        await doCheckin();
+                    } else if (intendedAction === 'checkout') {
+                        await doCheckout();
+                    } else {
+                        // Mostrar opções de check-in/check-out e relatório, ocultar admin
+                        document.getElementById('action-buttons').style.display = 'block';
+                        document.getElementById('my-reports').style.display = 'block';
+                        document.getElementById('admin-link').style.display = 'none';
+                        document.getElementById('message').textContent = 'Usuário encontrado. Escolha a ação:';
+                    }
                 } else {
                     // Mostrar formulário de registro
                     document.getElementById('register-form').style.display = 'block';
