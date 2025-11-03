@@ -102,7 +102,7 @@
         <h2>Presenças Registradas Hoje</h2>
         <ul id="list"></ul>
     </div>
-    <div id="my-reports" style="margin-top: 20px;">
+    <div id="my-reports" style="margin-top: 20px; display: none;">
         <h2>Meu Relatório</h2>
         <select id="report-type">
             <option value="weekly">Semanal</option>
@@ -127,6 +127,7 @@
             document.getElementById('crm').value = '';
             document.getElementById('register-form').style.display = 'none';
             document.getElementById('action-buttons').style.display = 'none';
+            // Keep my-reports visible if logged in
             document.getElementById('message').textContent = '';
         }
 
@@ -147,8 +148,9 @@
                 const data = await response.json();
                 if (data.exists) {
                     currentUserId = data.user_id;
-                    // Mostrar opções de check-in/check-out
+                    // Mostrar opções de check-in/check-out e relatório
                     document.getElementById('action-buttons').style.display = 'block';
+                    document.getElementById('my-reports').style.display = 'block';
                     document.getElementById('message').textContent = 'Usuário encontrado. Escolha a ação:';
                 } else {
                     // Mostrar formulário de registro
