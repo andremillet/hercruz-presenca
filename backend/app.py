@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, render_template
 from flask_cors import CORS
 from models import db, User, Shift, Attendance
 import os
@@ -8,7 +8,7 @@ import qrcode
 import io
 import socket
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='../templates', static_folder='../static')
 CORS(app)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///hercruz.db'
@@ -28,8 +28,8 @@ def get_local_ip():
         return "localhost"
 
 @app.route('/')
-def hello():
-    return jsonify({'message': 'Hercruz Presença API'})
+def index():
+    return render_template('index.html')
 
 # Basic auth routes (placeholder for now)
 @app.route('/api/auth/register', methods=['POST'])
@@ -118,11 +118,10 @@ def checkout():
     return jsonify({'message': 'Check-out recorded'})
 
 # QR Code generation
-@app.route('/api/qr/generate', methods=['GET'])
+@app.route('/api/qr', methods=['GET'])
 def generate_qr():
-    # Generate QR with URL to the confirmation page
-    ip = "192.168.15.2"  # Hardcoded for now
-    qr_data = f"http://{ip}:3000?scan=true"
+    # Generate QR with URL to the app
+    qr_data = "https://your-ngrok-url.ngrok.io"  # Placeholder, will be updated
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(qr_data)
     qr.make(fit=True)

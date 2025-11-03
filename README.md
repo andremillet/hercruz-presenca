@@ -4,7 +4,7 @@
 
 O projeto Hercruz Presença é uma aplicação web desenvolvida para facilitar o gerenciamento de presença de profissionais de saúde em um ambiente hospitalar. Inspirado nas mensagens de grupo do WhatsApp utilizadas atualmente para controlar escalas de plantão e rotinas, este sistema visa substituir o processo manual de "cópia e cola" por uma solução automatizada, eficiente e segura.
 
-O sistema permite que enfermeiras e outros profissionais façam check-in e check-out de suas jornadas de trabalho através de códigos QR gerados dinamicamente, com validade de 12 horas, e autenticação via passkey (WebAuthn), garantindo segurança e praticidade, especialmente em dispositivos móveis.
+O sistema permite que enfermeiras e outros profissionais façam check-in e check-out de suas jornadas de trabalho através de códigos QR gerados dinamicamente, com autenticação via CPF, garantindo praticidade, especialmente em dispositivos móveis.
 
 ### Contexto e Motivação
 
@@ -53,33 +53,27 @@ O objetivo do Hercruz Presença é digitalizar esse processo, diferenciando entr
 
 ## Stack Tecnológica
 
-### Backend
+### Backend e Frontend Unificados
 - **Linguagem**: Python 3.8+
-- **Framework**: Flask (para API RESTful)
+- **Framework**: Flask (para API RESTful e servir frontend)
 - **Banco de Dados**: SQLite (para simplicidade e facilidade de desenvolvimento local)
-- **Autenticação**: WebAuthn (passkeys) para login seguro
+- **Frontend**: SPA hardcoded em HTML/CSS/JS puro (sem frameworks externos)
 - **Geração de QR**: Biblioteca qrcode (Python)
-
-### Frontend
-- **Framework**: React 18+ (com hooks e componentes funcionais)
-- **Linguagem**: JavaScript (ES6+)
-- **Styling**: Tailwind CSS (para responsividade e design mobile-first)
-- **HTTP Client**: Axios (para comunicação com API)
-- **Roteamento**: React Router
 
 ### Outras Ferramentas
 - **Controle de Versão**: Git
-- **Gerenciamento de Dependências**: pip (backend), npm (frontend)
-- **Testes**: pytest (backend), Jest (frontend)
-- **Linting**: ESLint (frontend), flake8 (backend)
-- **Documentação**: Este README, com planos para Swagger/OpenAPI
+- **Gerenciamento de Dependências**: pip
+- **Testes**: pytest (backend)
+- **Linting**: flake8 (backend)
+- **Documentação**: Este README
+- **Deploy**: ngrok para exposição pública
 
 ## Funcionalidades Principais
 
-### 1. Autenticação Segura
-- Login via passkey (WebAuthn), compatível com dispositivos móveis e desktops.
-- Geração de códigos QR únicos por sessão, válidos por 12 horas.
-- Suporte a múltiplos dispositivos por usuário.
+### 1. Autenticação Simples
+- Validação via CPF, com registro automático para novos usuários.
+- Geração de códigos QR para acesso direto ao sistema.
+- Interface mobile-friendly.
 
 ### 2. Gerenciamento de Escalas
 - Criação e edição de escalas diárias/semanal/mensal.
@@ -115,12 +109,11 @@ O sistema segue uma arquitetura cliente-servidor simples:
 - **Banco de Dados (SQLite)**: Armazenamento de usuários, escalas, registros de presença.
 
 ### Fluxo de Uso Típico
-1. Administrador cria escala para o dia via painel web.
-2. Profissional acessa app web em dispositivo móvel.
-3. Faz login via passkey.
-4. Escaneia QR code gerado (válido 12h).
-5. Registra check-in/check-out automaticamente.
-6. Sistema calcula horas e atualiza relatórios.
+1. Profissional acessa a URL pública (via ngrok).
+2. Escaneia o QR code exibido na página.
+3. Digita o CPF no modal que aparece.
+4. Se CPF existe, check-in automático; se não, registra-se e faz check-in.
+5. Sistema calcula horas e exibe presenças registradas.
 
 ## Esquema do Banco de Dados
 
@@ -130,8 +123,10 @@ O banco de dados SQLite será estruturado com as seguintes tabelas principais:
 - id (INTEGER PRIMARY KEY)
 - name (TEXT NOT NULL)
 - email (TEXT UNIQUE NOT NULL)
-- role (TEXT: 'admin', 'plantonista', 'rotina')
-- passkey_credential (TEXT)  # Armazenamento seguro de credenciais WebAuthn
+- cpf (TEXT UNIQUE)
+- crm (TEXT)
+- role (TEXT: 'plantonista', 'rotina')
+- password (TEXT)  # Hash para senha padrão
 - created_at (DATETIME DEFAULT CURRENT_TIMESTAMP)
 
 ### Tabela: shifts
@@ -152,23 +147,15 @@ O banco de dados SQLite será estruturado com as seguintes tabelas principais:
 - hours_worked (REAL)  # Calculado automaticamente
 - created_at (DATETIME DEFAULT CURRENT_TIMESTAMP)
 
-### Tabela: qr_codes
-- id (INTEGER PRIMARY KEY)
-- user_id (INTEGER REFERENCES users(id))
-- code (TEXT UNIQUE)  # Código QR gerado
-- expires_at (DATETIME)  # Validade de 12 horas
-- used (BOOLEAN DEFAULT FALSE)
-- created_at (DATETIME DEFAULT CURRENT_TIMESTAMP)
+
 
 Este esquema permite rastreabilidade completa e cálculos precisos de horas trabalhadas.
 
 ## Endpoints da API (Flask)
 
 ### Autenticação
-- POST /api/auth/register: Registrar novo usuário com passkey.
-- POST /api/auth/login: Login via passkey.
-- POST /api/auth/qr/generate: Gerar QR code para sessão.
-- POST /api/auth/qr/validate: Validar QR code escaneado.
+- POST /api/auth/validate_cpf: Validar CPF existente.
+- POST /api/auth/register_cpf: Registrar novo usuário via CPF.
 
 ### Escalas
 - GET /api/shifts: Listar escalas (com filtros por data).
@@ -179,7 +166,7 @@ Este esquema permite rastreabilidade completa e cálculos precisos de horas trab
 ### Presença
 - POST /api/attendance/checkin: Registrar check-in.
 - POST /api/attendance/checkout: Registrar check-out.
-- GET /api/attendance/{user_id}: Histórico de presença do usuário.
+- GET /api/attendance: Listar todas as presenças.
 
 ### Relatórios
 - GET /api/reports/daily: Relatório diário.
@@ -188,44 +175,13 @@ Este esquema permite rastreabilidade completa e cálculos precisos de horas trab
 
 Todos os endpoints retornarão JSON, com códigos de status HTTP apropriados.
 
-## Componentes do Frontend (React)
+## Frontend (SPA Hardcoded)
 
-### Estrutura de Pastas
-```
-src/
-├── components/
-│   ├── Auth/
-│   │   ├── LoginForm.js
-│   │   ├── QRScanner.js
-│   │   └── PasskeySetup.js
-│   ├── Dashboard/
-│   │   ├── ShiftList.js
-│   │   ├── AttendanceForm.js
-│   │   └── ReportView.js
-│   └── Admin/
-│       ├── ShiftEditor.js
-│       └── UserManager.js
-├── pages/
-│   ├── Home.js
-│   ├── AdminPanel.js
-│   └── Profile.js
-├── services/
-│   ├── api.js  # Axios instance
-│   └── auth.js
-├── hooks/
-│   ├── useAuth.js
-│   └── useShifts.js
-├── utils/
-│   ├── qrUtils.js
-│   └── dateUtils.js
-└── App.js
-```
+O frontend é uma Single Page Application (SPA) simples, implementada em HTML/CSS/JS puro, servida diretamente pelo Flask. Inclui:
 
-### Componentes Chave
-- **QRScanner**: Usa biblioteca como react-qr-scanner para escanear códigos.
-- **ShiftList**: Exibe escalas em formato de lista/calendário responsivo.
-- **AttendanceForm**: Formulário simples para check-in/out.
-- **ShiftEditor**: Interface drag-and-drop para criar escalas.
+- **Página Principal**: Exibe QR code, modal para CPF, lista de presenças.
+- **Interatividade**: JavaScript para validação de CPF, registro e check-in via fetch() para a API.
+- **Design**: Responsivo, mobile-first, sem dependências externas.
 
 ## Configuração e Desenvolvimento
 
@@ -236,16 +192,9 @@ src/
 
 ### Instalação
 1. Clone o repositório: `git clone <url> && cd hercruz-presenca`
-2. Backend:
-   - `cd backend`
-   - `python -m venv venv`
-   - `source venv/bin/activate` (Linux/Mac) ou `venv\Scripts\activate` (Windows)
-   - `pip install -r requirements.txt`
-   - `flask run`
-3. Frontend:
-   - `cd frontend`
-   - `npm install`
-   - `npm start`
+2. Instale dependências: `pip install -r backend/requirements.txt`
+3. Execute o app: `python backend/app.py`
+4. Acesse http://localhost:5000 (ou via ngrok para público)
 
 ### Estrutura de Diretórios
 ```
@@ -253,62 +202,39 @@ hercruz-presenca/
 ├── backend/
 │   ├── app.py
 │   ├── models.py
-│   ├── routes/
 │   ├── requirements.txt
-│   └── config.py
-├── frontend/
-│   ├── public/
-│   ├── src/
-│   ├── package.json
-│   └── tailwind.config.js
-├── docs/
-├── tests/
-└── README.md
+│   └── hercruz.db  # Banco de dados SQLite
+├── templates/
+│   └── index.html  # SPA hardcoded
+├── static/  # Arquivos estáticos (se necessário)
+├── instance/
+├── README.md
+└── install_ngrok.sh
 ```
 
 ### Testes
 - Backend: `pytest`
-- Frontend: `npm test`
 
 ### Deploy
-- Backend: Gunicorn + Nginx
-- Frontend: Build com `npm run build`, servir estático ou via CDN.
+- Execute `python backend/app.py` e exponha via ngrok: `ngrok http 5000`
+- Para produção, use Gunicorn: `gunicorn -w 4 backend.app:app`
 
-## Plano de Desenvolvimento
+## Status Atual
 
-### Fase 1: MVP (1-2 semanas)
-- Configurar projeto base (Flask + React).
-- Implementar autenticação básica (sem passkey inicialmente).
-- Criar CRUD de escalas.
-- Interface básica para check-in/out.
-
-### Fase 2: Autenticação Avançada (1 semana)
-- Integrar WebAuthn para passkeys.
-- Geração e validação de QR codes.
-
-### Fase 3: Funcionalidades Avançadas (2 semanas)
-- Relatórios e exportação.
-- Notificações.
-- Otimização mobile.
-
-### Fase 4: Testes e Deploy (1 semana)
-- Testes unitários/integração.
-- Deploy em servidor (Heroku, DigitalOcean).
+O MVP está implementado como uma SPA hardcoded servida por Flask, com autenticação via CPF e check-in/check-out via QR. Pronto para deploy via ngrok ou servidor dedicado.
 
 ## Considerações de Segurança
 
-- Todas as comunicações via HTTPS.
-- Credenciais WebAuthn armazenadas de forma segura.
+- Use HTTPS em produção (ngrok fornece automaticamente).
 - Validação de entrada em todos os endpoints.
-- Logs de auditoria para mudanças sensíveis.
-- Limitação de tentativas de login.
+- Hashes de senha para usuários registrados.
+- Limitação de tentativas pode ser adicionada futuramente.
 
 ## Melhorias Futuras
 
-- Integração com sistemas hospitalares existentes (HL7, FHIR).
-- Suporte a PWA para notificações offline.
-- IA para otimização de escalas.
-- Multi-idioma (Português, Inglês).
+- Adicionar autenticação mais robusta (ex.: senhas customizadas).
+- Relatórios e exportação de dados.
+- Notificações push.
 - Integração com folha de pagamento.
 
 ## Contribuição

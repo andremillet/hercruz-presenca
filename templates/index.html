@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presença Hospitalar - Hercruz</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        #qr-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        #qr {
+            max-width: 200px;
+            cursor: pointer;
+            border: 2px solid #3498db;
+            border-radius: 10px;
+        }
+        #modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        #modal input, #modal button {
+            display: block;
+            margin: 10px 0;
+            padding: 10px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        #modal button {
+            background: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #modal button:hover {
+            background: #2980b9;
+        }
+        #attendance {
+            margin-top: 20px;
+        }
+        #attendance h2 {
+            color: #2c3e50;
+        }
+        #list {
+            list-style: none;
+            padding: 0;
+        }
+        #list li {
+            background: white;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sistema de Presença Hospitalar - Hercruz</h1>
+    <div id="qr-container">
+        <p>Escaneie o QR Code para registrar presença:</p>
+        <img id="qr" src="/api/qr" alt="QR Code" onclick="showModal()">
+    </div>
+    <div id="modal">
+        <h3>Digite seu CPF</h3>
+        <input type="text" id="cpf" placeholder="CPF (somente números)" maxlength="11">
+        <div id="register-form" style="display: none;">
+            <input type="text" id="name" placeholder="Nome completo">
+            <input type="text" id="crm" placeholder="CRM (opcional)">
+        </div>
+        <button onclick="validateCPF()">Confirmar</button>
+        <button onclick="closeModal()">Cancelar</button>
+        <p id="message" class="error"></p>
+    </div>
+    <div id="attendance">
+        <h2>Presenças Registradas Hoje</h2>
+        <ul id="list"></ul>
+    </div>
+
+    <script>
+        let currentCPF = '';
+
+        async function showModal() {
+            document.getElementById('modal').style.display = 'block';
+            document.getElementById('cpf').focus();
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+            document.getElementById('cpf').value = '';
+            document.getElementById('name').value = '';
+            document.getElementById('crm').value = '';
+            document.getElementById('register-form').style.display = 'none';
+            document.getElementById('message').textContent = '';
+        }
+
+        async function validateCPF() {
+            const cpf = document.getElementById('cpf').value.trim();
+            if (!cpf || cpf.length !== 11 || !/^\d+$/.test(cpf)) {
+                document.getElementById('message').textContent = 'CPF inválido. Digite 11 números.';
+                return;
+            }
+            currentCPF = cpf;
+            try {
+                const response = await fetch('/api/auth/validate_cpf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cpf })
+                });
+                const data = await response.json();
+                if (data.exists) {
+                    // Check-in automático
+                    await checkin(data.user_id);
+                } else {
+                    // Mostrar formulário de registro
+                    document.getElementById('register-form').style.display = 'block';
+                    document.getElementById('message').textContent = 'CPF não encontrado. Preencha os dados para registrar.';
+                }
+            } catch (error) {
+                document.getElementById('message').textContent = 'Erro ao validar CPF.';
+            }
+        }
+
+        async function checkin(userId) {
+            try {
+                const response = await fetch('/api/attendance/checkin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: userId, shift_id: 1 }) // Default shift
+                });
+                if (response.ok) {
+                    document.getElementById('message').textContent = 'Check-in realizado com sucesso!';
+                    loadAttendance();
+                    setTimeout(closeModal, 2000);
+                } else {
+                    document.getElementById('message').textContent = 'Erro no check-in.';
+                }
+            } catch (error) {
+                document.getElementById('message').textContent = 'Erro no check-in.';
+            }
+        }
+
+        async function registerAndCheckin() {
+            const name = document.getElementById('name').value.trim();
+            const crm = document.getElementById('crm').value.trim();
+            if (!name) {
+                document.getElementById('message').textContent = 'Nome é obrigatório.';
+                return;
+            }
+            try {
+                const response = await fetch('/api/auth/register_cpf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cpf: currentCPF, name, crm })
+                });
+                const data = await response.json();
+                if (response.ok) {
+                    await checkin(data.user_id);
+                } else {
+                    document.getElementById('message').textContent = 'Erro no registro.';
+                }
+            } catch (error) {
+                document.getElementById('message').textContent = 'Erro no registro.';
+            }
+        }
+
+        async function loadAttendance() {
+            try {
+                const response = await fetch('/api/attendance');
+                const data = await response.json();
+                const list = document.getElementById('list');
+                list.innerHTML = data.map(item => 
+                    `<li>${item.user_name} - Check-in: ${item.check_in ? new Date(item.check_in).toLocaleString() : 'N/A'} - Check-out: ${item.check_out ? new Date(item.check_out).toLocaleString() : 'N/A'}</li>`
+                ).join('');
+            } catch (error) {
+                console.error('Erro ao carregar presenças:', error);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('cpf').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                if (document.getElementById('register-form').style.display === 'block') {
+                    registerAndCheckin();
+                } else {
+                    validateCPF();
+                }
+            }
+        });
+
+        document.getElementById('name').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') registerAndCheckin();
+        });
+
+        // Load initial data
+        loadAttendance();
+    </script>
+</body>
+</html>
