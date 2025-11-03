@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file, render_template
+from flask import Flask, request, jsonify, send_file, render_template, session, redirect, url_for
 from flask_cors import CORS
 from models import db, User, Shift, Attendance
 import os
@@ -11,6 +11,7 @@ from pytz import timezone
 
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
 CORS(app)
+app.secret_key = 'admin-secret-key'  # Change in production
 
 # Timezone setup
 sao_paulo_tz = timezone('America/Sao_Paulo')
@@ -185,6 +186,121 @@ def get_attendances():
         })
     return jsonify(result)
 
+@app.route('/admin')
+def admin():
+    if session.get('admin_logged_in'):
+        return render_template('admin.html')
+    else:
+        return render_template('admin_login.html')
+
+@app.route('/admin/login', methods=['POST'])
+def admin_login():
+    data = request.get_json()
+    user = User.query.filter_by(email=data['email']).first()
+    if user and user.role == 'admin' and check_password_hash(user.password, data['password']):
+        session['admin_logged_in'] = True
+        if data['password'] == 'admin':
+            return jsonify({'first_login': True, 'message': 'Troque a senha no painel.'})
+        return jsonify({'message': 'Login successful'})
+    return jsonify({'message': 'Credenciais inválidas'}), 401
+
+@app.route('/admin/change_password', methods=['POST'])
+def change_password():
+    if not session.get('admin_logged_in'):
+        return jsonify({'message': 'Não logado'}), 401
+    data = request.get_json()
+    user = User.query.filter_by(email='admin@hercruz.com').first()
+    user.password = generate_password_hash(data['new_password'])
+    db.session.commit()
+    return jsonify({'message': 'Senha alterada'})
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin_logged_in', None)
+    return redirect(url_for('admin'))
+
+@app.route('/admin/reports')
+def admin_reports():
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin'))
+    
+    report_type = request.args.get('type', 'daily')  # daily or monthly
+    scope = request.args.get('scope', 'general')  # general or user
+    user_id = request.args.get('user_id')
+    
+    # Filtrar attendances
+    attendances = Attendance.query
+    if scope == 'user' and user_id:
+        attendances = attendances.filter_by(user_id=user_id)
+    now = datetime.now(sao_paulo_tz)
+    if report_type == 'daily':
+        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        attendances = attendances.filter(Attendance.check_in >= start_date)
+    elif report_type == 'monthly':
+        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        attendances = attendances.filter(Attendance.check_in >= start_date)
+    
+    attendances = attendances.all()
+    
+    # Usuários para dropdown
+    users = User.query.all()
+    
+    # Gerar HTML do relatório
+    user_options = "".join(f'<option value="{u.id}">{u.name}</option>' for u in users)
+    table_rows = "".join(f"""
+    <tr>
+        <td>{a.user.name if a.user else 'Desconhecido'}</td>
+        <td>{a.check_in.strftime('%d/%m/%Y %H:%M') if a.check_in else 'N/A'}</td>
+        <td>{a.check_out.strftime('%d/%m/%Y %H:%M') if a.check_out else 'N/A'}</td>
+        <td>{f"{a.hours_worked:.2f}" if a.hours_worked else 'N/A'}</td>
+    </tr>""" for a in attendances)
+    
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+        <meta charset="UTF-8">
+        <title>Relatório de Frequência</title>
+        <style>
+            body {{ font-family: Arial; margin: 20px; }}
+            table {{ border-collapse: collapse; width: 100%; }}
+            th, td {{ border: 1px solid #ddd; padding: 8px; text-align: left; }}
+            th {{ background-color: #f2f2f2; }}
+            @media print {{ body {{ margin: 0; }} }}
+        </style>
+    </head>
+    <body>
+        <h1>Relatório de Frequência {report_type.capitalize()} - {scope.capitalize()}</h1>
+        <form method="get">
+            <label>Tipo: 
+                <select name="type">
+                    <option value="daily" {'selected' if report_type == 'daily' else ''}>Diário</option>
+                    <option value="monthly" {'selected' if report_type == 'monthly' else ''}>Mensal</option>
+                </select>
+            </label>
+            <label>Escopo: 
+                <select name="scope">
+                    <option value="general" {'selected' if scope == 'general' else ''}>Geral</option>
+                    <option value="user" {'selected' if scope == 'user' else ''}>Por Usuário</option>
+                </select>
+            </label>
+            <select name="user_id" style="display: {'block' if scope == 'user' else 'none'};">
+                <option value="">Selecione Usuário</option>
+                {user_options}
+            </select>
+            <button type="submit">Gerar</button>
+        </form>
+        <table>
+            <tr><th>Usuário</th><th>Check-in</th><th>Check-out</th><th>Horas Trabalhadas</th></tr>
+            {table_rows}
+        </table>
+        <button onclick="window.print()">Imprimir</button>
+        <a href="/admin">Voltar ao Painel</a>
+    </body>
+    </html>
+    """
+    return html
+
 if __name__ == '__main__':
     with app.app_context():
         db.drop_all()  # For dev, drop and recreate
@@ -220,6 +336,16 @@ if __name__ == '__main__':
             )
             db.session.add(default_attendance)
             db.session.commit()
-            db.session.add(default_user)
+
+        # Create admin user if not exists
+        if not User.query.filter_by(email='admin@hercruz.com').first():
+            hashed_password = generate_password_hash('admin')
+            admin_user = User(
+                name='Administrador',
+                email='admin@hercruz.com',
+                role='admin',
+                password=hashed_password
+            )
+            db.session.add(admin_user)
             db.session.commit()
     app.run(host='0.0.0.0', port=5000, debug=True)

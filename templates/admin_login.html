@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Login Admin - Hercruz</title>
+    <style>
+        body { font-family: Arial; margin: 50px; }
+        form { max-width: 300px; margin: auto; }
+        input { display: block; margin: 10px 0; padding: 10px; width: 100%; }
+        button { padding: 10px; background: #3498db; color: white; border: none; cursor: pointer; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Login Administrativo</h1>
+    <form id="login-form">
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="password" id="password" placeholder="Senha" required>
+        <button type="submit">Entrar</button>
+    </form>
+    <div id="change-password" style="display: none;">
+        <h2>Troque a Senha</h2>
+        <input type="password" id="new-password" placeholder="Nova Senha" required>
+        <button onclick="changePassword()">Alterar</button>
+    </div>
+    <p id="message" class="error"></p>
+
+    <script>
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const response = await fetch('/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            const data = await response.json();
+            document.getElementById('message').textContent = data.message;
+            if (response.ok) {
+                if (data.first_login) {
+                    document.getElementById('login-form').style.display = 'none';
+                    document.getElementById('change-password').style.display = 'block';
+                } else {
+                    window.location.href = '/admin';
+                }
+            }
+        });
+
+        async function changePassword() {
+            const newPassword = document.getElementById('new-password').value;
+            const response = await fetch('/admin/change_password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ new_password: newPassword })
+            });
+            const data = await response.json();
+            document.getElementById('message').textContent = data.message;
+            if (response.ok) {
+                window.location.href = '/admin';
+            }
+        }
+    </script>
+</body>
+</html>
