@@ -85,10 +85,10 @@
     </div>
     <div id="modal">
         <h3>Digite seu CPF</h3>
-        <input type="text" id="cpf" placeholder="CPF (somente números)" maxlength="11">
+        <input type="tel" id="cpf" placeholder="CPF (somente números)" maxlength="11" inputmode="numeric" pattern="[0-9]*">
         <div id="register-form" style="display: none;">
             <input type="text" id="name" placeholder="Nome completo">
-            <input type="text" id="crm" placeholder="CRM (opcional)">
+            <input type="tel" id="crm" placeholder="CRM (opcional)" inputmode="numeric" pattern="[0-9]*">
         </div>
         <button onclick="validateCPF()">Confirmar</button>
         <button onclick="closeModal()">Cancelar</button>
@@ -213,6 +213,12 @@
         document.getElementById('name').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') registerAndCheckin();
         });
+
+        // Detectar se acessado via escaneamento
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('scan') === 'true') {
+            showModal();
+        }
 
         // Load initial data
         loadAttendance();

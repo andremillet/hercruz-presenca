@@ -121,7 +121,7 @@ def checkout():
 @app.route('/api/qr', methods=['GET'])
 def generate_qr():
     # Generate QR with URL to the app
-    qr_data = "https://your-ngrok-url.ngrok.io"  # Placeholder, will be updated
+    qr_data = "https://aa6075a1ae9c.ngrok-free.app?scan=true"
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(qr_data)
     qr.make(fit=True)
