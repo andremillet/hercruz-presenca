@@ -4,7 +4,7 @@
 
 O projeto Hercruz Presença é uma aplicação web desenvolvida para facilitar o gerenciamento de presença de profissionais de saúde em um ambiente hospitalar. Inspirado nas mensagens de grupo do WhatsApp utilizadas atualmente para controlar escalas de plantão e rotinas, este sistema visa substituir o processo manual de "cópia e cola" por uma solução automatizada, eficiente e segura.
 
-O sistema permite que enfermeiras e outros profissionais façam check-in e check-out de suas jornadas de trabalho através de códigos QR gerados dinamicamente, com autenticação via CPF, garantindo praticidade, especialmente em dispositivos móveis.
+O sistema permite que enfermeiras e outros profissionais façam check-in e check-out de suas jornadas de trabalho através de códigos QR ou botões diretos (adaptado para mobile), com autenticação via CPF, relatórios pessoais e administrativos, e restrições de horário para evitar abusos.
 
 ### Contexto e Motivação
 
@@ -22,29 +22,31 @@ Atualmente, o gerenciamento de presença no hospital Hercruz é realizado via me
 Exemplo de mensagem:
 
 ```
-Gerenciamento Presença Médica 
+Gerenciamento Presença Médica
 
 Data : 02/11
 
-Plantão dia : 
+Plantão dia :
 Plantão noite :  x
 
 Enf 3 e 4
 Werner
 Sinaila
 
-Rotina 
+Rotina
 
 Enf 5e 6
 
-Plantão 
+Plantão
 Giulia
-Juliana 
+Juliana
 
 Rotina
 ```
 
 Este processo é repetitivo, propenso a erros humanos, e consome tempo valioso dos profissionais. Além disso, não oferece rastreabilidade adequada nem integração com sistemas de folha de pagamento ou relatórios.
+
+O Hercruz Presença digitaliza esse processo, permitindo check-in e check-out via QR code ou interface direta, com autenticação por CPF, relatórios administrativos e adaptação para dispositivos móveis.
 
 O objetivo do Hercruz Presença é digitalizar esse processo, diferenciando entre dois tipos principais de trabalho:
 
@@ -70,35 +72,35 @@ O objetivo do Hercruz Presença é digitalizar esse processo, diferenciando entr
 
 ## Funcionalidades Principais
 
-### 1. Autenticação Simples
-- Validação via CPF, com registro automático para novos usuários.
-- Geração de códigos QR para acesso direto ao sistema.
-- Interface mobile-friendly.
+### 1. Autenticação e Acesso
+- Validação via CPF (11 dígitos), com registro automático para novos usuários (nome e CRM opcional).
+- Geração dinâmica de QR codes para acesso público.
+- Interface adaptada: QR para desktop, botões diretos para mobile.
+- Restrição: 1 check-in por período de 12h (7h-19h ou 19h-7h), timezone America/Sao_Paulo.
 
-### 2. Gerenciamento de Escalas
-- Criação e edição de escalas diárias/semanal/mensal.
-- Atribuição de profissionais a turnos: Plantão Diurno, Plantão Noturno, Rotina.
-- Diferenciação automática de carga horária (12h para plantonista, 8h para rotina).
+### 2. Gerenciamento de Presença
+- Check-in/check-out com cálculo automático de horas trabalhadas.
+- Relatórios pessoais (semanal/mensal) para usuários logados.
+- Painel administrativo com relatórios gerais/diários/mensais, filtros por usuário, e impressão.
 
-### 3. Check-in/Check-out
-- Interface mobile-friendly para check-in via QR code.
-- Registro automático de horários de entrada e saída.
-- Validação de turnos para evitar sobreposições ou ausências.
+### 3. Interface Adaptada
+- Desktop: QR code clicável para iniciar processo.
+- Mobile: Botões diretos para check-in/check-out, otimizados para toque.
+- Campos de input (CPF/CRM) com teclado numérico em mobile.
 
-### 4. Relatórios e Analytics
-- Geração de relatórios de presença por período.
-- Cálculo de horas trabalhadas, incluindo extras.
-- Exportação para PDF ou Excel.
+### 4. Relatórios e Impressão
+- Usuários: Relatórios pessoais semanais/mensais com tabela de presenças e botão de impressão.
+- Administradores: Relatórios gerais/diários/mensais, filtráveis por usuário, com impressão direta do navegador.
 
-### 5. Notificações
-- Alertas para escalas incompletas.
-- Lembretes de check-in/check-out.
-- Notificações push (futuro: integração com PWA).
+### 5. Segurança e Controle
+- Autenticação admin com login/senha e troca obrigatória no primeiro acesso.
+- Sessões para controle de acesso.
+- Validação de CPF e restrições de horário para prevenir abusos.
 
 ### 6. Administração
-- Painel para administradores criarem/editarem escalas.
-- Gerenciamento de usuários (adicionar/remover profissionais).
-- Logs de auditoria para mudanças.
+- Painel acessível via link no rodapé (oculto para logados).
+- Login admin/admin, força troca de senha.
+- Geração de relatórios avançados com filtros e impressão.
 
 ## Arquitetura do Sistema
 
@@ -109,11 +111,37 @@ O sistema segue uma arquitetura cliente-servidor simples:
 - **Banco de Dados (SQLite)**: Armazenamento de usuários, escalas, registros de presença.
 
 ### Fluxo de Uso Típico
-1. Profissional acessa a URL pública (via ngrok).
-2. Escaneia o QR code exibido na página.
-3. Digita o CPF no modal que aparece.
-4. Se CPF existe, check-in automático; se não, registra-se e faz check-in.
-5. Sistema calcula horas e exibe presenças registradas.
+
+#### Acesso Inicial
+1. **Compartilhamento:** Administrador compartilha o link público (ex.: via WhatsApp) gerado pelo ngrok.
+2. **Abertura da Página:** Usuário acessa a URL. A interface se adapta:
+   - **Desktop:** Exibe QR code com instrução "Escaneie o QR Code ou clique para registrar presença".
+   - **Mobile:** Exibe botões "Check-in" e "Check-out" diretamente (sem QR).
+
+#### Autenticação e Registro
+3. **Interação Inicial:**
+   - Desktop: Escaneia QR ou clica na imagem.
+   - Mobile: Clica em "Check-in" ou "Check-out".
+4. **Modal de CPF:** Abre modal solicitando CPF (11 dígitos, campo otimizado para mobile).
+5. **Validação:**
+   - Sistema verifica se CPF existe no banco.
+   - Se **não existe**: Exibe formulário adicional para nome e CRM (opcional), registra usuário e realiza check-in automático.
+   - Se **existe**: Para desktop/mobile sem ação pré-definida, exibe botões "Check-in" e "Check-out". Para mobile com botão clicado, executa a ação diretamente.
+
+#### Check-in/Check-out
+6. **Restrições:** Permite apenas 1 check-in por período de 12 horas (7h-19h ou 19h-7h). Se tentar novamente no mesmo período, exibe erro.
+7. **Execução:** Registra horário em timezone America/Sao_Paulo, calcula horas trabalhadas automaticamente.
+8. **Feedback:** Modal fecha com mensagem de sucesso, lista de presenças é atualizada.
+
+#### Relatórios
+9. **Usuário Logado:** Seção "Meu Relatório" fica visível, permitindo gerar relatórios semanais ou mensais (tabela com check-in, check-out, horas), com opção de impressão.
+10. **Administrador:** Link no rodapé (visível apenas para não-logados) leva a painel admin com login (admin/admin, força troca de senha). Gera relatórios gerais/diários/mensais por usuário, com filtros e impressão.
+
+#### Segurança e Logout
+11. **Admin:** Logout limpa sessão.
+12. **Usuário:** Não há logout explícito; sessão implícita via CPF validado.
+
+O sistema garante praticidade, segurança e conformidade com horários hospitalares.
 
 ## Esquema do Banco de Dados
 
@@ -154,8 +182,8 @@ Este esquema permite rastreabilidade completa e cálculos precisos de horas trab
 ## Endpoints da API (Flask)
 
 ### Autenticação
-- POST /api/auth/validate_cpf: Validar CPF existente.
-- POST /api/auth/register_cpf: Registrar novo usuário via CPF.
+- POST /api/auth/validate_cpf: Validar CPF existente (retorna se existe e user_id).
+- POST /api/auth/register_cpf: Registrar novo usuário via CPF (dados: cpf, name, crm opcional).
 
 ### Escalas
 - GET /api/shifts: Listar escalas (com filtros por data).
@@ -164,9 +192,9 @@ Este esquema permite rastreabilidade completa e cálculos precisos de horas trab
 - DELETE /api/shifts/{id}: Remover escala.
 
 ### Presença
-- POST /api/attendance/checkin: Registrar check-in.
-- POST /api/attendance/checkout: Registrar check-out.
-- GET /api/attendance: Listar todas as presenças.
+- POST /api/attendance/checkin: Registrar check-in (dados: user_id, shift_id=1).
+- POST /api/attendance/checkout: Registrar check-out (dados: attendance_id do último check-in aberto).
+- GET /api/attendance: Listar todas as presenças (usado para relatórios).
 
 ### Relatórios
 - GET /api/reports/daily: Relatório diário.
@@ -192,9 +220,11 @@ O frontend é uma Single Page Application (SPA) simples, implementada em HTML/CS
 
 ### Instalação
 1. Clone o repositório: `git clone <url> && cd hercruz-presenca`
-2. Instale dependências: `pip install -r backend/requirements.txt`
-3. Execute o app: `python backend/app.py`
-4. Acesse http://localhost:5000 (ou via ngrok para público)
+2. Configure ambiente: `source .venv/bin/activate` (se venv existir) ou instale globalmente.
+3. Instale dependências: `~/.local/bin/uv pip install -r backend/requirements.txt`
+4. Execute o app: `python backend/app.py`
+5. Para público: `ngrok http 5000` e use a URL gerada.
+6. Acesse a URL para testar (desktop: QR; mobile: botões).
 
 ### Estrutura de Diretórios
 ```
@@ -213,29 +243,34 @@ hercruz-presenca/
 ```
 
 ### Testes
-- Backend: `pytest`
+- Backend: `pytest` (se configurado).
+- Manual: Acesse local/ngrok, teste check-in/check-out, relatórios, admin.
 
 ### Deploy
-- Execute `python backend/app.py` e exponha via ngrok: `ngrok http 5000`
-- Para produção, use Gunicorn: `gunicorn -w 4 backend.app:app`
+- Local: `python backend/app.py`
+- Público: `ngrok http 5000` + compartilhe URL.
+- Produção: Use Gunicorn/Nginx, configure domínio, certifique HTTPS.
 
 ## Status Atual
 
-O MVP está implementado como uma SPA hardcoded servida por Flask, com autenticação via CPF e check-in/check-out via QR. Pronto para deploy via ngrok ou servidor dedicado.
+O sistema está totalmente implementado: SPA hardcoded com Flask, autenticação CPF, check-in/check-out com restrições, relatórios pessoais/admin, adaptação mobile/desktop. Pronto para uso via ngrok ou deploy dedicado.
 
 ## Considerações de Segurança
 
 - Use HTTPS em produção (ngrok fornece automaticamente).
-- Validação de entrada em todos os endpoints.
-- Hashes de senha para usuários registrados.
+- Validação de entrada (CPF 11 dígitos, etc.).
+- Hashes de senha para admin.
+- Sessões Flask para controle de acesso.
+- Restrições de horário para prevenir check-ins excessivos.
 - Limitação de tentativas pode ser adicionada futuramente.
 
 ## Melhorias Futuras
 
-- Adicionar autenticação mais robusta (ex.: senhas customizadas).
-- Relatórios e exportação de dados.
-- Notificações push.
-- Integração com folha de pagamento.
+- Notificações push ou lembretes.
+- Exportação de relatórios para PDF/Excel.
+- Integração com sistemas hospitalares (HL7).
+- Autenticação multi-fator para admin.
+- PWA para offline.
 
 ## Contribuição
 
