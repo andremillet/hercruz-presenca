@@ -8,7 +8,7 @@ echo "Installing ngrok..."
 if command -v pacman &> /dev/null; then
     # Arch Linux - download binary
     echo "Downloading ngrok for Linux..."
-    wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
+    curl -o ngrok-v3-stable-linux-amd64.tgz https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
     sudo tar xvzf ngrok-v3-stable-linux-amd64.tgz -C /usr/local/bin
     rm ngrok-v3-stable-linux-amd64.tgz
 elif command -v apt &> /dev/null; then
