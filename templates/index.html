@@ -102,6 +102,15 @@
         <h2>Presenças Registradas Hoje</h2>
         <ul id="list"></ul>
     </div>
+    <div id="my-reports" style="margin-top: 20px;">
+        <h2>Meu Relatório</h2>
+        <select id="report-type">
+            <option value="weekly">Semanal</option>
+            <option value="monthly">Mensal</option>
+        </select>
+        <button onclick="generateReport()">Gerar Relatório</button>
+        <div id="report-result" style="margin-top: 10px;"></div>
+    </div>
 
     <script>
         let currentCPF = '';
@@ -249,11 +258,49 @@
                 const response = await fetch('/api/attendance');
                 const data = await response.json();
                 const list = document.getElementById('list');
-                list.innerHTML = data.map(item => 
+                list.innerHTML = data.map(item =>
                     `<li>${item.user_name} - Check-in: ${item.check_in ? new Date(item.check_in).toLocaleString() : 'N/A'} - Check-out: ${item.check_out ? new Date(item.check_out).toLocaleString() : 'N/A'}</li>`
                 ).join('');
             } catch (error) {
                 console.error('Erro ao carregar presenças:', error);
+            }
+        }
+
+        async function generateReport() {
+            const type = document.getElementById('report-type').value;
+            if (!currentUserId) {
+                document.getElementById('report-result').innerHTML = '<p>Faça login primeiro.</p>';
+                return;
+            }
+            try {
+                const response = await fetch('/api/attendance');
+                const data = await response.json();
+                const userData = data.filter(a => a.user_id === currentUserId);
+                let filtered = [];
+                const now = new Date();
+                if (type === 'weekly') {
+                    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    filtered = userData.filter(a => a.check_in && new Date(a.check_in) >= weekAgo);
+                } else if (type === 'monthly') {
+                    const monthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+                    filtered = userData.filter(a => a.check_in && new Date(a.check_in) >= monthAgo);
+                }
+                const table = `
+                    <table border="1" style="width: 100%; border-collapse: collapse;">
+                        <tr><th>Data Check-in</th><th>Data Check-out</th><th>Horas Trabalhadas</th></tr>
+                        ${filtered.map(a => `
+                            <tr>
+                                <td>${a.check_in ? new Date(a.check_in).toLocaleString() : 'N/A'}</td>
+                                <td>${a.check_out ? new Date(a.check_out).toLocaleString() : 'N/A'}</td>
+                                <td>${a.hours_worked ? a.hours_worked.toFixed(2) : 'N/A'}</td>
+                            </tr>
+                        `).join('')}
+                    </table>
+                    <button onclick="window.print()">Imprimir</button>
+                `;
+                document.getElementById('report-result').innerHTML = table;
+            } catch (error) {
+                document.getElementById('report-result').innerHTML = '<p>Erro ao gerar relatório.</p>';
             }
         }
 

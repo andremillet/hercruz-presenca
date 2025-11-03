@@ -3,7 +3,7 @@ from flask_cors import CORS
 from models import db, User, Shift, Attendance
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta
 import qrcode
 import io
 import socket
@@ -103,7 +103,31 @@ def checkin():
     data = request.get_json()
     user_id = data['user_id']
     shift_id = data['shift_id']
-    check_in_time = datetime.now(sao_paulo_tz)
+    now = datetime.now(sao_paulo_tz)
+
+    # Check if already checked in within the last 12 hours from 7 AM
+    # Periods: 7 AM - 7 PM, 7 PM - 7 AM next day
+    if now.hour >= 7 and now.hour < 19:  # 7 AM to 7 PM
+        period_start = now.replace(hour=7, minute=0, second=0, microsecond=0)
+    else:  # 7 PM to 7 AM
+        if now.hour >= 19:
+            period_start = now.replace(hour=19, minute=0, second=0, microsecond=0)
+        else:
+            yesterday = now - timedelta(days=1)
+            period_start = yesterday.replace(hour=19, minute=0, second=0, microsecond=0)
+
+    period_end = period_start + timedelta(hours=12)
+
+    existing = Attendance.query.filter(
+        Attendance.user_id == user_id,
+        Attendance.check_in >= period_start,
+        Attendance.check_in < period_end
+    ).first()
+
+    if existing:
+        return jsonify({'message': 'Já fez check-in neste período de 12 horas.'}), 400
+
+    check_in_time = now
     attendance = Attendance(user_id=user_id, shift_id=shift_id, check_in=check_in_time)
     db.session.add(attendance)
     db.session.commit()
@@ -343,6 +367,7 @@ if __name__ == '__main__':
             admin_user = User(
                 name='Administrador',
                 email='admin@hercruz.com',
+                cpf='admin',
                 role='admin',
                 password=hashed_password
             )
