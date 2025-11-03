@@ -148,9 +148,10 @@
                 const data = await response.json();
                 if (data.exists) {
                     currentUserId = data.user_id;
-                    // Mostrar opções de check-in/check-out e relatório
+                    // Mostrar opções de check-in/check-out e relatório, ocultar admin
                     document.getElementById('action-buttons').style.display = 'block';
                     document.getElementById('my-reports').style.display = 'block';
+                    document.getElementById('admin-link').style.display = 'none';
                     document.getElementById('message').textContent = 'Usuário encontrado. Escolha a ação:';
                 } else {
                     // Mostrar formulário de registro
@@ -333,7 +334,7 @@
         loadAttendance();
     </script>
     <footer style="position: fixed; bottom: 0; width: 100%; background: #f4f4f4; text-align: center; padding: 10px; border-top: 1px solid #ddd;">
-        <a href="/admin" style="color: #3498db; text-decoration: none;">Administração</a>
+        <a id="admin-link" href="/admin" style="color: #3498db; text-decoration: none;">Administração</a>
     </footer>
 </body>
 </html>
