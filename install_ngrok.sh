@@ -6,8 +6,11 @@ echo "Installing ngrok..."
 
 # Check if Arch Linux or Debian-based
 if command -v pacman &> /dev/null; then
-    # Arch Linux
-    sudo pacman -S ngrok
+    # Arch Linux - download binary
+    echo "Downloading ngrok for Linux..."
+    wget https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
+    sudo tar xvzf ngrok-v3-stable-linux-amd64.tgz -C /usr/local/bin
+    rm ngrok-v3-stable-linux-amd64.tgz
 elif command -v apt &> /dev/null; then
     # Debian/Ubuntu
     curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
